@@ -13,7 +13,7 @@ export default function Chat() {
     if (storedUserId) {
       setUserId(storedUserId);
     } else {
-      router.push("/login"); // Redirect to login page if userId is missing
+      router.push("/"); // Redirect to login page if userId is missing
     }
   }, []);
 

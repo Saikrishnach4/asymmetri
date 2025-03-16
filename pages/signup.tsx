@@ -20,7 +20,7 @@ export default function Signup() {
     if (res.ok) {
       alert("Signup successful!");
       console.log("User ID:", data.id); // You now have the user ID from the database
-      router.push("/login");
+      router.push("/");
     } else {
       alert("Signup failed: " + data.message);
     }
