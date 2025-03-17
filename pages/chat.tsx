@@ -1,30 +1,30 @@
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // Import useRouter for navigation
+import { signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function Chat() {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false); // Add loading state
-  const router = useRouter(); // Initialize useRouter
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const { data: session } = useSession();
 
   useEffect(() => {
     const storedUserId = localStorage.getItem("userId");
     if (storedUserId) {
       setUserId(storedUserId);
     } else {
-      router.push("/"); // Redirect to login page if userId is missing
+      router.push("/");
     }
   }, []);
 
   useEffect(() => {
     if (!userId) return;
-
     const fetchMessages = async () => {
       try {
         const response = await fetch(`/api/history?userId=${userId}`);
         const data = await response.json();
-
         if (data.messages) {
           setMessages(data.messages);
         }
@@ -32,7 +32,6 @@ export default function Chat() {
         console.error("Error fetching chat history:", error);
       }
     };
-
     fetchMessages();
   }, [userId]);
 
@@ -46,7 +45,7 @@ export default function Chat() {
 
     const newMessage = { role: "user", content: input };
     setMessages((prevMessages) => [...prevMessages, newMessage]);
-    setLoading(true); // Start loading
+    setLoading(true);
 
     try {
       const response = await fetch("/api/chat", {
@@ -66,7 +65,7 @@ export default function Chat() {
       console.error("Error sending message:", error);
     }
 
-    setLoading(false); // Stop loading
+    setLoading(false);
     setInput("");
   };
 
@@ -84,7 +83,22 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex h-screen bg-gradient-to-r from-gray-900 to-gray-800 text-white p-6">
+    <div className="flex h-screen bg-gradient-to-r from-gray-900 to-gray-800 text-white p-6 relative">
+      {/* Logout Button - Positioned at Top Right */}
+      {session && (
+        <button
+          onClick={() => {
+            localStorage.removeItem("userId");
+            signOut({ redirect: false }).then(() => {
+              router.push("/");
+            });
+          }}
+          className="absolute top-4 right-4 bg-red-500 text-white px-5 py-2 rounded-lg font-semibold hover:bg-red-600 transition-all shadow-lg"
+        >
+          Logout
+        </button>
+      )}
+
       <div className="flex flex-col flex-1 p-4 border rounded-lg bg-gray-900 shadow-lg overflow-y-auto">
         <div className="flex-1 space-y-3">
           {messages.map((msg, index) => (

@@ -6,7 +6,6 @@ import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
-// ✅ Extend NextAuth Session Type to include `id`
 declare module "next-auth" {
   interface Session {
     user: {
