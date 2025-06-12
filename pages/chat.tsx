@@ -21,23 +21,26 @@ export default function Chat() {
 
   useEffect(() => {
     if (!userId) return;
-
     const fetchMessages = async () => {
       try {
         const response = await fetch(`/api/history?userId=${userId}`);
         const data = await response.json();
-        const formattedMessages = data.flatMap((msg: any) => [
-          { role: "user", content: msg.message },
-          { role: "ai", content: msg.response },
-        ]);
-        setMessages(formattedMessages);
+        console.log(data)
+        if (data) {
+          const formattedMessages = data.flatMap((msg: any) => [
+            { role: "user", content: msg.message },
+            { role: "ai", content: msg.response }
+          ]);
+
+
+          setMessages(formattedMessages);
+        }
       } catch (error) {
         console.error("Error fetching chat history:", error);
       }
     };
-
     fetchMessages();
-  }, [userId]);
+  }, [userId, messages]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -48,7 +51,7 @@ export default function Chat() {
     if (!input.trim() || !userId) return;
 
     const newMessage = { role: "user", content: input };
-    setMessages((prev) => [...prev, newMessage]);
+    setMessages((prevMessages) => [...prevMessages, newMessage]);
     setLoading(true);
 
     try {
@@ -59,7 +62,7 @@ export default function Chat() {
       });
       const data = await response.json();
       if (data.response) {
-        setMessages((prev) => [...prev, { role: "ai", content: data.response }]);
+        setMessages((prevMessages) => [...prevMessages, { role: "ai", content: data.response }]);
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -68,7 +71,6 @@ export default function Chat() {
     setLoading(false);
     setInput("");
   };
-
   const handleDownload = () => {
     const lastAiMessage = messages.filter((msg) => msg.role === "ai").pop();
     if (!lastAiMessage) return;
@@ -81,18 +83,16 @@ export default function Chat() {
     link.click();
     document.body.removeChild(link);
   };
-
-  const handleLogout = async () => {
-    localStorage.clear(); // or just removeItem("userId");
-    await signOut({ redirect: false });
-    router.push("/");
-  };
-
   return (
     <div className="flex h-screen bg-gray-900 text-white p-6 relative">
       {session && (
         <button
-          onClick={handleLogout}
+          onClick={() => {
+            localStorage.removeItem("userId");
+            signOut({ redirect: false }).then(() => {
+              router.push("/");
+            });
+          }}
           className="absolute top-4 right-4 bg-red-500 px-5 py-2 rounded-lg font-semibold hover:bg-red-600 transition-all shadow-lg"
         >
           Logout
@@ -104,9 +104,7 @@ export default function Chat() {
           {messages.map((msg, index) => (
             <div
               key={index}
-              className={`p-3 rounded-xl max-w-xs text-sm shadow-md transition-all duration-300 ease-in-out ${msg.role === "user"
-                ? "bg-blue-600 text-white self-end"
-                : "bg-gray-700 text-gray-200 self-start"
+              className={`p-3 rounded-xl max-w-xs text-sm shadow-md transition-all duration-300 ease-in-out ${msg.role === "user" ? "bg-blue-600 text-white self-end" : "bg-gray-700 text-gray-200 self-start"
                 }`}
             >
               {msg.content}
@@ -137,13 +135,13 @@ export default function Chat() {
           </button>
         </form>
       </div>
-
       {messages.some((msg) => msg.role === "ai") && (
         <div className="ml-6 w-1/3 p-5 bg-gray-800 rounded-lg shadow-xl flex flex-col">
           <h2 className="text-lg font-bold mb-3 text-blue-400">Live Preview</h2>
           <iframe
             className="flex-1 w-full border rounded-lg shadow-md"
             srcDoc={messages.filter((msg) => msg.role === "ai").slice(-1)[0]?.content}
+
             title="Live Preview"
           />
           <button
