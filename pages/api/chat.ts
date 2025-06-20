@@ -14,7 +14,9 @@ if (!apiKey) {
 }
 
 const client = ModelClient(endpoint, new AzureKeyCredential(apiKey));
-
+export const config = {
+  runtime: 'edge',
+};
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method Not Allowed" });
@@ -40,7 +42,7 @@ export default async function handler(req, res) {
             Ensure the response is wrapped inside <style> and <html> properly.`,
           },
         ],
-        temperature: 0.7,
+        temperature: 0.3,
         top_p: 1,
       },
     });
