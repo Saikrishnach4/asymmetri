@@ -5,8 +5,8 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const endpoint = "https://models.github.ai/inference"; // ✅ Your Azure-hosted endpoint
-const model = "openai/gpt-4.1"; // ✅ New model reference
+const endpoint = "https://models.github.ai/inference";
+const model = "openai/gpt-4.1";
 const apiKey = process.env.AZURE_MODEL_KEY;
 
 if (!apiKey) {
@@ -14,8 +14,6 @@ if (!apiKey) {
 }
 
 const client = ModelClient(endpoint, new AzureKeyCredential(apiKey));
-
-console.log("key=============", process.env.AZURE_MODEL_KEY)
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -52,10 +50,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "AI model response error" });
     }
 
-    if (!userId || typeof userId !== "string") {
-      return res.status(400).json({ error: "Invalid or missing user ID" });
-    }
-
     const aiMessage = response.body.choices[0]?.message?.content;
 
     if (!aiMessage || typeof aiMessage !== "string") {
@@ -70,15 +64,9 @@ export default async function handler(req, res) {
       },
     });
 
-
-    res.status(200).json({ message: aiMessage });
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      console.error("Handler Error:", error.message);
-    } else {
-      console.error("Handler Error:", error);
-    }
+    res.status(200).json({ response: aiMessage }); // ✅ FIXED
+  } catch (error) {
+    console.error("Handler Error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
-
 }

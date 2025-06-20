@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -82,9 +84,15 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, message: input }),
       });
+
       const data = await response.json();
+
       if (data.response) {
-        setMessages((prevMessages) => [...prevMessages, { role: "ai", content: data.response }]);
+        setMessages((prevMessages) => {
+          const updated = [...prevMessages, { role: "ai", content: data.response }];
+          setTimeout(scrollToInput, 100);
+          return updated;
+        });
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -107,9 +115,10 @@ export default function Chat() {
     document.body.removeChild(link);
   };
 
+  const lastAiMessage = [...messages].reverse().find((msg) => msg.role === "ai");
+
   return (
     <div className="flex h-screen bg-gray-900 text-white p-6 relative">
-      {/* ↓ Scroll Button (visible only if form is not in view) */}
       {showScrollButton && (
         <button
           onClick={scrollToInput}
@@ -155,7 +164,6 @@ export default function Chat() {
           )}
         </div>
 
-        {/* Form with ref */}
         <form
           ref={inputRef}
           onSubmit={handleSubmit}
@@ -177,12 +185,13 @@ export default function Chat() {
         </form>
       </div>
 
-      {messages.some((msg) => msg.role === "ai") && (
+      {lastAiMessage && (
         <div className="ml-6 w-1/3 p-5 bg-gray-800 rounded-lg shadow-xl flex flex-col">
           <h2 className="text-lg font-bold mb-3 text-blue-400">Live Preview</h2>
           <iframe
+            key={lastAiMessage.content} // Force re-render
             className="flex-1 w-full border rounded-lg shadow-md"
-            srcDoc={messages.filter((msg) => msg.role === "ai").slice(-1)[0]?.content}
+            srcDoc={lastAiMessage.content}
             title="Live Preview"
           />
           <button
