@@ -7,7 +7,15 @@ const prisma = new PrismaClient();
 
 const endpoint = "https://models.github.ai/inference"; // ✅ Your Azure-hosted endpoint
 const model = "openai/gpt-4.1"; // ✅ New model reference
-const client = ModelClient(endpoint, new AzureKeyCredential(process.env.AZURE_MODEL_KEY));
+const apiKey = process.env.AZURE_MODEL_KEY;
+
+if (!apiKey) {
+  throw new Error("❌ AZURE_MODEL_KEY is not defined in environment variables");
+}
+
+const client = ModelClient(endpoint, new AzureKeyCredential(apiKey));
+
+console.log("key=============", process.env.AZURE_MODEL_KEY)
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
