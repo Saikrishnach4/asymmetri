@@ -1,39 +1,23 @@
-import { AzureKeyCredential } from "@azure/core-auth";
-import ModelClient from "@azure-rest/ai-inference";
-import { isUnexpected } from "@azure-rest/ai-inference";
 import { PrismaClient } from "@prisma/client";
-import type { NextApiRequest, NextApiResponse } from "next";
+import axios, { AxiosError } from "axios";
 
 const prisma = new PrismaClient();
 
-const endpoint = "https://models.github.ai/inference";
-const model = "openai/gpt-4.1";
-const apiKey = process.env.AZURE_MODEL_KEY;
-
-if (!apiKey) {
-  throw new Error("❌ AZURE_MODEL_KEY is not defined in environment variables");
-}
-
-const client = ModelClient(endpoint, new AzureKeyCredential(apiKey));
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method Not Allowed" });
   }
 
   const { message, userId } = req.body;
-
   if (!message || !userId) {
     return res.status(400).json({ error: "User ID and message are required" });
   }
 
   try {
-    const response = await client.path("/chat/completions").post({
-      body: {
-        model,
+    const response = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model: "openai/gpt-3.5-turbo",
         messages: [
           {
             role: "system",
@@ -45,22 +29,23 @@ export default async function handler(
             Ensure the response is wrapped inside <style> and <html> properly.`,
           },
         ],
-        temperature: 0.3,
-        top_p: 1,
       },
-    });
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "HTTP-Referer": "http://localhost:3000",
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    if (isUnexpected(response)) {
-      console.error("Azure API Error:", response.body.error);
-      return res.status(500).json({ error: "AI model response error" });
+    if (!response.data.choices || response.data.choices.length === 0) {
+      return res.status(500).json({ error: "Invalid API response structure" });
     }
 
-    const aiMessage = response.body.choices[0]?.message?.content;
+    const aiMessage = response.data.choices[0].message.content;
 
-    if (!aiMessage || typeof aiMessage !== "string") {
-      return res.status(500).json({ error: "Invalid response from AI model" });
-    }
-
+    // Store chat in the database
     await prisma.chat.create({
       data: {
         userId,
@@ -69,9 +54,12 @@ export default async function handler(
       },
     });
 
-    return res.status(200).json({ response: aiMessage });
-  } catch (error) {
-    console.error("Handler Error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    res.status(200).json({ message: aiMessage });
+  } catch (error: unknown) {
+    const err = error as AxiosError; // ✅ Type assertion
+
+    console.error("API Error:", err.response?.data || err.message); // ✅ No more TypeScript error
+
+    res.status(500).json({ error: "Internal server error" });
   }
 }
