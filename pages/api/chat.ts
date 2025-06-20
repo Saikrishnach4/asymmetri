@@ -2,6 +2,7 @@ import { AzureKeyCredential } from "@azure/core-auth";
 import ModelClient from "@azure-rest/ai-inference";
 import { isUnexpected } from "@azure-rest/ai-inference";
 import { PrismaClient } from "@prisma/client";
+import type { NextApiRequest, NextApiResponse } from "next";
 
 const prisma = new PrismaClient();
 
@@ -15,24 +16,18 @@ if (!apiKey) {
 
 const client = ModelClient(endpoint, new AzureKeyCredential(apiKey));
 
-// ✅ Required for Vercel Edge Functions
-export const config = {
-  runtime: "edge",
-};
-
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ message: "Method Not Allowed" }), {
-      status: 405,
-    });
+    return res.status(405).json({ message: "Method Not Allowed" });
   }
 
-  const { message, userId } = await req.json();
+  const { message, userId } = req.body;
 
   if (!message || !userId) {
-    return new Response(JSON.stringify({ error: "User ID and message are required" }), {
-      status: 400,
-    });
+    return res.status(400).json({ error: "User ID and message are required" });
   }
 
   try {
@@ -57,17 +52,13 @@ export default async function handler(req: Request): Promise<Response> {
 
     if (isUnexpected(response)) {
       console.error("Azure API Error:", response.body.error);
-      return new Response(JSON.stringify({ error: "AI model response error" }), {
-        status: 500,
-      });
+      return res.status(500).json({ error: "AI model response error" });
     }
 
     const aiMessage = response.body.choices[0]?.message?.content;
 
     if (!aiMessage || typeof aiMessage !== "string") {
-      return new Response(JSON.stringify({ error: "Invalid response from AI model" }), {
-        status: 500,
-      });
+      return res.status(500).json({ error: "Invalid response from AI model" });
     }
 
     await prisma.chat.create({
@@ -78,16 +69,9 @@ export default async function handler(req: Request): Promise<Response> {
       },
     });
 
-    return new Response(JSON.stringify({ response: aiMessage }), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    return res.status(200).json({ response: aiMessage });
   } catch (error) {
     console.error("Handler Error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-    });
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
