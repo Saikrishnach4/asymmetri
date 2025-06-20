@@ -1,7 +1,13 @@
+import { AzureKeyCredential } from "@azure/core-auth";
+import ModelClient from "@azure-rest/ai-inference";
+import { isUnexpected } from "@azure-rest/ai-inference";
 import { PrismaClient } from "@prisma/client";
-import axios, { AxiosError } from "axios";
 
 const prisma = new PrismaClient();
+
+const endpoint = "https://models.github.ai/inference"; // ✅ Your Azure-hosted endpoint
+const model = "openai/gpt-4.1"; // ✅ New model reference
+const client = ModelClient(endpoint, new AzureKeyCredential(process.env.AZURE_MODEL_KEY));
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -14,10 +20,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        model: "openai/gpt-3.5-turbo",
+    const response = await client.path("/chat/completions").post({
+      body: {
+        model,
         messages: [
           {
             role: "system",
@@ -29,23 +34,19 @@ export default async function handler(req, res) {
             Ensure the response is wrapped inside <style> and <html> properly.`,
           },
         ],
+        temperature: 0.7,
+        top_p: 1,
       },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "HTTP-Referer": "http://localhost:3000",
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    });
 
-    if (!response.data.choices || response.data.choices.length === 0) {
-      return res.status(500).json({ error: "Invalid API response structure" });
+    if (isUnexpected(response)) {
+      console.error("Azure API Error:", response.body.error);
+      return res.status(500).json({ error: "AI model response error" });
     }
 
-    const aiMessage = response.data.choices[0].message.content;
+    const aiMessage = response.body.choices[0].message.content;
 
-    // Store chat in the database
+    // Save to DB
     await prisma.chat.create({
       data: {
         userId,
@@ -55,11 +56,8 @@ export default async function handler(req, res) {
     });
 
     res.status(200).json({ message: aiMessage });
-  } catch (error: unknown) {
-    const err = error as AxiosError; // ✅ Type assertion
-
-    console.error("API Error:", err.response?.data || err.message); // ✅ No more TypeScript error
-
+  } catch (error) {
+    console.error("Handler Error:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 }
