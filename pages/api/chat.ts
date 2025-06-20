@@ -72,8 +72,13 @@ export default async function handler(req, res) {
 
 
     res.status(200).json({ message: aiMessage });
-  } catch (error) {
-    console.error("Handler Error:", error.message);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Handler Error:", error.message);
+    } else {
+      console.error("Handler Error:", error);
+    }
     res.status(500).json({ error: "Internal server error" });
   }
+
 }
