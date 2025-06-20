@@ -14,17 +14,25 @@ if (!apiKey) {
 }
 
 const client = ModelClient(endpoint, new AzureKeyCredential(apiKey));
+
+// ✅ Required for Vercel Edge Functions
 export const config = {
-  runtime: 'edge',
+  runtime: "edge",
 };
-export default async function handler(req, res) {
+
+export default async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method Not Allowed" });
+    return new Response(JSON.stringify({ message: "Method Not Allowed" }), {
+      status: 405,
+    });
   }
 
-  const { message, userId } = req.body;
+  const { message, userId } = await req.json();
+
   if (!message || !userId) {
-    return res.status(400).json({ error: "User ID and message are required" });
+    return new Response(JSON.stringify({ error: "User ID and message are required" }), {
+      status: 400,
+    });
   }
 
   try {
@@ -49,13 +57,17 @@ export default async function handler(req, res) {
 
     if (isUnexpected(response)) {
       console.error("Azure API Error:", response.body.error);
-      return res.status(500).json({ error: "AI model response error" });
+      return new Response(JSON.stringify({ error: "AI model response error" }), {
+        status: 500,
+      });
     }
 
     const aiMessage = response.body.choices[0]?.message?.content;
 
     if (!aiMessage || typeof aiMessage !== "string") {
-      return res.status(500).json({ error: "Invalid response from AI model" });
+      return new Response(JSON.stringify({ error: "Invalid response from AI model" }), {
+        status: 500,
+      });
     }
 
     await prisma.chat.create({
@@ -66,9 +78,16 @@ export default async function handler(req, res) {
       },
     });
 
-    res.status(200).json({ response: aiMessage }); // ✅ FIXED
+    return new Response(JSON.stringify({ response: aiMessage }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
   } catch (error) {
     console.error("Handler Error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+    });
   }
 }
