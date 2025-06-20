@@ -52,9 +52,16 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "AI model response error" });
     }
 
-    const aiMessage = response.body.choices[0].message.content;
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({ error: "Invalid or missing user ID" });
+    }
 
-    // Save to DB
+    const aiMessage = response.body.choices[0]?.message?.content;
+
+    if (!aiMessage || typeof aiMessage !== "string") {
+      return res.status(500).json({ error: "Invalid response from AI model" });
+    }
+
     await prisma.chat.create({
       data: {
         userId,
@@ -62,6 +69,7 @@ export default async function handler(req, res) {
         response: aiMessage,
       },
     });
+
 
     res.status(200).json({ message: aiMessage });
   } catch (error) {
