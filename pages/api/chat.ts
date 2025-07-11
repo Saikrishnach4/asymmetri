@@ -1,7 +1,15 @@
+import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
+import { AzureKeyCredential } from "@azure/core-auth";
 import { PrismaClient } from "@prisma/client";
-import axios, { AxiosError } from "axios";
 
 const prisma = new PrismaClient();
+
+const endpoint = "https://models.github.ai/inference";
+const model = "openai/gpt-4.1";
+const token = process.env.GITHUB_TOKEN;
+if (!token) {
+  throw new Error("GITHUB_TOKEN environment variable is not set");
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -14,36 +22,35 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        model: "openai/gpt-3.5-turbo",
+    const client = ModelClient(endpoint, new AzureKeyCredential(token as string));
+    const response = await client.path("/chat/completions").post({
+      body: {
+        model,
         messages: [
           {
             role: "system",
-            content: "You are a helpful AI that generates valid HTML and CSS code.",
+            content: "You are a helpful AI that generates valid HTML and CSS code."
           },
           {
             role: "user",
-            content: `Generate a complete HTML and CSS code snippet for: ${message}. 
-            Ensure the response is wrapped inside <style> and <html> properly.`,
-          },
+            content: `Generate a complete HTML and CSS code snippet for: ${message}. \nEnsure the response is wrapped inside <style> and <html> properly.`
+          }
         ],
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "HTTP-Referer": "http://localhost:3000",
-          "Content-Type": "application/json",
-        },
+        temperature: 0.7,
+        top_p: 1
       }
-    );
+    });
 
-    if (!response.data.choices || response.data.choices.length === 0) {
-      return res.status(500).json({ error: "Invalid API response structure" });
+    if (isUnexpected(response)) {
+      console.error("Model API returned unexpected response:", response.body);
+      throw response.body.error;
     }
 
-    const aiMessage = response.data.choices[0].message.content;
+    console.log("Model API response body:", response.body);
+    const aiMessage = response.body.choices[0].message.content;
+    if (!aiMessage) {
+      throw new Error("No message content returned from model");
+    }
 
     // Store chat in the database
     await prisma.chat.create({
@@ -55,11 +62,12 @@ export default async function handler(req, res) {
     });
 
     res.status(200).json({ message: aiMessage });
-  } catch (error: unknown) {
-    const err = error as AxiosError; // ✅ Type assertion
-
-    console.error("API Error:", err.response?.data || err.message); // ✅ No more TypeScript error
-
-    res.status(500).json({ error: "Internal server error" });
+  } catch (error) {
+    console.error("API Error (full object):", error);
+    if (error instanceof Error) {
+      res.status(500).json({ error: error.message, stack: error.stack });
+    } else {
+      res.status(500).json({ error: JSON.stringify(error) });
+    }
   }
 }
