@@ -5,7 +5,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const endpoint = "https://models.github.ai/inference";
-const model = "openai/gpt-4.1";
+const model = "openai/gpt-4o";
 const token = process.env.GITHUB_TOKEN;
 if (!token) {
   throw new Error("GITHUB_TOKEN environment variable is not set");
