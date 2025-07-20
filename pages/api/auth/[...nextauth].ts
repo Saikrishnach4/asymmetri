@@ -49,7 +49,7 @@ export default NextAuth({
   callbacks: {
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = String(token?.id || ""); // ✅ Ensuring `id` is a string
+        session.user.id = String(token?.id || ""); 
       }
       return session;
     },

@@ -43,7 +43,7 @@ export default function Chat() {
         const response = await fetch(`/api/history?userId=${userId}`);
         const data = await response.json();
         console.log(data)
-        if (data) {
+        if (Array.isArray(data)) {
           const formattedMessages = data.flatMap((msg: any) => [
             { role: "user", content: msg.message },
             { role: "ai", content: msg.response }
@@ -51,6 +51,8 @@ export default function Chat() {
 
 
           setMessages(formattedMessages);
+        } else {
+          console.error("Expected array but got:", data);
         }
       } catch (error) {
         console.error("Error fetching chat history:", error);
